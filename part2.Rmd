@@ -1,0 +1,223 @@
+---
+title: "Part 2"
+author: "Your Name"
+date: "05/02/2019"
+output: html_document
+---
+
+## Set up
+We're going to need a package called `rvest` (rvest, harvest, geddit?) to do our web scraping, `robotstxt` helps with some of our ethics checking, and `stringr`and `dplyr` will help with our data cleaning.
+
+```{r set-up, message=FALSE, warning=FALSE}
+
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(purrr)
+library(readr)
+library(rvest)
+library(stringr)
+library(robotstxt)
+library(ratelimitr)
+library(tidyr)
+
+```
+
+NOTE! We would usually do a lot more preparation talking about the ethics of web scraping, as well as how websites are built (HTML, CSS and URLs). Unfortunately, we don't have time for that, but those are all elements you might learn more about doing data science.
+
+## Set up
+We're going to need a package called `rvest` (rvest, harvest, geddit?) to do our web scraping, `robotstxt` and `ratelimitr` helps with some of our ethics checking, and `stringr` and `dplyr` and the rest will help with our data cleaning and other useful things.
+
+```{r set-up, message=FALSE, warning=FALSE}
+
+# install.packages("dplyr")
+# install.packages("ggplot2")
+# install.packages("lubridate")
+# install.packages("purrr")
+# install.packages("readr")
+# install.packages("robotstxt")
+# install.packages("rvest")
+# install.packages("stringr")
+# install.packages("tidyr")
+# install.packages("ratelimitr")
+
+# Main scraping package
+library(rvest)
+
+# Helpful for ethical behaviour
+library(robotstxt)
+library(ratelimitr)
+
+# Tidying data and other useful things
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(purrr)
+library(readr)
+library(stringr)
+library(tidyr)
+library(httr)
+
+```
+
+In your browser, you can got to [https://www.fanfiction.net/robots.txt](www.fanfiction.net/robots.txt), or check what it says directly from your R session!
+
+```{r ethics, warning=FALSE}
+
+GET("fanfiction.net", use_proxy("64.251.21.73", 8080), verbose())
+
+robotstxt("blog.dataembassy.co.nz")
+
+rt = robotstxt("fanfiction.net")
+
+# Check which areas are off limits
+rt$permissions
+
+# Any mention of a crawl delay?
+rt$crawl_delay
+
+# Is it enough to just check this?
+
+n = 1 # n is the number of allowed events within a period
+p = 10 # p is the length (in seconds) of measurement period
+
+```
+
+```{r scrape-data}
+
+# Pick which page you want to scrape - This URL takes stories of all ratings, sorted by favourites as a measure of popularity
+base_url = 
+  "https://www.fanfiction.net/book/Harry-Potter/?&srt=4&r=10&p="
+
+# 1:20 indicates the pages I want
+# There are 25 stories per page, so the first 20 pages gives us the top 500 stories
+run = TRUE
+
+if(run){
+map_df(1:2, limit_rate(function(i){
+
+  pages = read_html(paste0(base_url, i))
+  
+  # The '.' before stitle and xgray indicates that it is the class
+  data.frame(title = html_text(html_nodes(pages, ".stitle")), details=html_text(html_nodes(pages, ".xgray")),
+             stringsAsFactors=FALSE)
+
+}, rate(n, p)) ) -> hp_data
+}
+
+hp_data = read_csv("somethingIpreparedearlier.csv")
+# View(head(hp_data))
+
+# Store how many stories for graph titles later
+n_stories = dim(hp_data)[1]
+
+```
+
+```{r scrape-data}
+
+# Pick which page you want to scrape - This URL takes stories of all ratings, sorted by favourites as a measure of popularity
+base_url = 
+  "https://www.fanfiction.net/book/Harry-Potter/?&srt=4&r=10&p="
+
+# 1:20 indicates the pages I want
+# There are 25 stories per page, so the first 20 pages gives us the top 500 stories
+map_df(1:20, function(i) {
+
+  pages = read_html(paste0(base_url, i))
+  
+  # The '.' before stitle and xgray indicates that it is the class
+  data.frame(title = html_text(html_nodes(pages, ".stitle")), details=html_text(html_nodes(pages, ".xgray")),
+             stringsAsFactors=FALSE)
+
+}) -> data
+
+# Store how many stories for each graph titles later
+n_stories = dim(data)[1]
+
+```
+
+## Get some helpful information from the filter menu
+This next section pulls some information from the filters menu to help up clean up the data later. See [this xpath tutorial](https://www.w3schools.com/xml/xpath_intro.asp) for more information.
+
+```{r helpful-bits}
+# Major credit to Anna for this code and the chunk below - you would have been disgusted by how hack-y it was before
+
+home = read_html("https://www.fanfiction.net/book/Harry-Potter/")
+
+# Get genres
+genres = home %>% 
+  html_nodes(xpath='//*[@id="myform"]/div[1]/select[3]/option') %>%
+  html_text() 
+genres = genres[-1] #delete first text value
+genresReg = paste(genres, collapse = '|')
+
+# Get the list of characters
+characters <- home %>% 
+  html_nodes(xpath='//*[@id="myform"]/div[1]/select[10]/option') %>%
+  html_text() 
+charactersReg = paste(characters, collapse = '|')
+
+# Get ratings
+ratingLevels <- c("K", "K+", "T", "M")
+
+# Useful for later
+my_counter = function(x){
+ return(length(x) - sum(str_detect(x, "Not")))
+}
+
+```
+
+## Tidy up the data
+```{r tidy-data}
+
+tidy_data = data %>%
+  mutate(id = 1:n()) %>%
+  select(id,title, details) %>% 
+  separate_rows(details,sep="- ") %>%
+  separate(details,c("varName", "tempValue"), sep=":", fill="left") %>%
+  mutate(
+    newValue = str_trim(tempValue),
+    newVarName = case_when(
+      !is.na(varName) ~ varName,
+      str_detect(newValue, "Complete") ~ "Completed",
+      str_detect(newValue, genresReg) ~ "Genres",
+      str_detect(newValue, charactersReg) ~ "Characters",
+      TRUE ~ "Language"
+    )
+  ) %>% 
+  select(id, title, newVarName, newValue) %>%
+  spread(newVarName, newValue, fill = NA) %>%
+  mutate_at(vars(c("Chapters","Favs","Follows","Reviews","Words")), parse_number) %>%
+  mutate_at(vars(c("Published")), mdy) %>%
+  mutate(
+    Rating = factor(Rated, ratingLevels),
+    Completed = case_when(is.na(Completed) ~ "Not complete", 
+                          TRUE ~ "Complete"),
+    Characters = str_replace_all(Characters,c("\\[" = "","\\]" = ""))
+  )
+
+# Make columns for each genre
+
+for (ii in 1:length(genres)){
+    tidy_data = tidy_data %>%
+    mutate_(.dots = setNames(list(paste0("case_when(str_detect(Genres, \"", genres[ii], "\") ~ \"", genres[ii], "\",
+                                        TRUE ~ paste0(\"Not \", \"", genres[ii], "\"),
+                                        NA ~ paste0(\"Not \",\"", genres[ii], "\"))"
+                                        )), paste0("genre_", genres[ii])))
+}
+
+# Make columns for each character
+# This one takes a while because there are a lot of characters that could be included
+
+for (jj in 1:length(characters)){
+    tidy_data = tidy_data %>%
+    mutate_(.dots = setNames(list(paste0("case_when(str_detect(Characters, \"", characters[jj], "\") ~ \"", characters[jj], "\",
+                                        TRUE ~ paste0(\"Not \", \"", characters[jj], "\"),
+                                        NA ~ paste0(\"Not \",\"", characters[jj], "\"))"
+                                        )), paste0("character_", characters[jj])))
+}
+
+
+```
+
+
