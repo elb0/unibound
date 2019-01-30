@@ -6,12 +6,12 @@ date: "05/02/2019"
 
 # Welcome to UniBound Stats Lab!
 
-You made it! Thanks for setting up the RStudio Cloud account.
+You made it! Thanks for setting up RStudio.
 
 # Part 1: Orientation
 
 ## What is this?
-The file you currently have open is a type of file called a 'Markdown' file. It's a great system for running code alongside writing text.
+The file you currently have open is a type of file called a 'Markdown' file. It's a great system for running code alongside writing text. Make your first edit to this code by replacing "Your Name" with your actual name where it says "author:" at the top of the page. Make sure you keep the quote marks, though! If I was making the change it would now say: author: "Liza Bolton".
 
 ## Try running some simple code
 The grey box you can see below is where you can write and run R code. It is called a "chunk". There is some simple code in the chunk below.
