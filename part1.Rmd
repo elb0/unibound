@@ -1,0 +1,37 @@
+# Welcome to UniBound Stats Lab!
+
+You made it! Thanks for setting up the RStudio Cloud account.
+
+# Part 1: Orientation
+
+## What is this?
+The file you currently have open is a type of file called a 'Markdown' file. It's a great system for running code alongside writing text.
+
+## Try running some simple code
+The grey box you can see below is where you can write and run R code. It is called a "chunk". There is some simple code in the chunk below.
+
+Read through the code and predict what it will do.
+
+Press the green arrow/go button on the top right of the box. You'll see the output appear below the chunk.
+
+```{r simple-example}
+# print() will just return the text inside the quote marks
+print("Stats is so cool")
+
+# "Hello world!" is a common first programming exercise!
+print("Hello world!") 
+
+# These comments after the "#" are not read by the computer, they are comments just for humans and help explain what is going on in your code. A good habit to get into!
+
+# You can do maths in R - Liza uses this for everything. 
+
+# You can do the calculation directly...
+3 + 7
+
+# ...or you can store it as something and use it again later
+do_maths = 3 + 7
+do_maths
+
+```
+
+Congratulations, you're finished orientation. Click "Part 2: Harry Potter Fanfiction" in the files pane on the right.
