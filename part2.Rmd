@@ -54,7 +54,7 @@ p = 10 # p is the length (in seconds) of measurement period
 
 ```{r scrape-data}
 
-# Pick which page you want to scrape - This URL takes stories of all ratings, sorted by favourites as a measure of popularity
+# Pick which page you want to scrape. For this to work with my code, use the "Browse" option, not search.
 
 # This url will get us the the top favourited Harry Potter stories of all ratings. "https://www.fanfiction.net/book/Harry-Potter/?&srt=4&r=10&p="
 
@@ -166,13 +166,24 @@ for (jj in 1:length(characters)){
                                         )), paste0("character_", characters[jj])))
 }
 
+# This part makes a nice bonus dataset by character, instead of by story
+
+character_data = tidy_data %>% 
+  gather(character_Character, Character, starts_with("character_")) %>% 
+  filter(!grepl("Not ",Character)) %>% 
+  select(id, Character, everything(), -character_Character) %>% 
+  group_by(Character) %>% 
+  mutate(char_count = n()) 
 
 ```
 
+
+
 ```{r save-data}
 
-# This will save your data as a csv file for us to use in Part 3
-write_csv(my_data, "my_fandom_data.csv")
+# This will save your data as two csv files for us to use in Part 3
+write_csv(tidy_data, "my_story_data.csv")
+write_csv(character_data, "my_character_data.csv")
 
 ```
 
