@@ -8,37 +8,9 @@ date: "05/02/2019"
 We're going to need a package called `rvest` (rvest, harvest, geddit?) to do our web scraping, `robotstxt` helps with some of our ethics checking, and `stringr`and `dplyr` will help with our data cleaning.
 
 ```{r set-up, message=FALSE, warning=FALSE}
-
-library(dplyr)
-library(ggplot2)
-library(lubridate)
-library(purrr)
-library(readr)
-library(rvest)
-library(stringr)
-library(robotstxt)
-library(ratelimitr)
-library(tidyr)
-
-```
-
-NOTE! We would usually do a lot more preparation talking about the ethics of web scraping, as well as how websites are built (HTML, CSS and URLs). Unfortunately, we don't have time for that, but those are all elements you might learn more about doing data science.
-
-## Set up
-We're going to need a package called `rvest` (rvest, harvest, geddit?) to do our web scraping, `robotstxt` and `ratelimitr` helps with some of our ethics checking, and `stringr` and `dplyr` and the rest will help with our data cleaning and other useful things.
-
-```{r set-up, message=FALSE, warning=FALSE}
-
-# install.packages("dplyr")
-# install.packages("ggplot2")
-# install.packages("lubridate")
-# install.packages("purrr")
-# install.packages("readr")
-# install.packages("robotstxt")
-# install.packages("rvest")
-# install.packages("stringr")
-# install.packages("tidyr")
-# install.packages("ratelimitr")
+list.of.packages = c("dplyr", "ggplot2", "lubridate", "purrr", "readr", "rvest", "stringr", "robotstxt", "ratelimitr", "tidyr")
+new.packages = list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)) install.packages(new.packages)
 
 # Main scraping package
 library(rvest)
@@ -59,13 +31,11 @@ library(httr)
 
 ```
 
+NOTE! We would usually do a lot more preparation talking about the ethics of web scraping, as well as how websites are built (HTML, CSS and URLs). Unfortunately, we don't have time for that, but those are all elements you might learn more about doing data science.
+
 In your browser, you can got to [https://www.fanfiction.net/robots.txt](www.fanfiction.net/robots.txt), or check what it says directly from your R session!
 
 ```{r ethics, warning=FALSE}
-
-GET("fanfiction.net", use_proxy("64.251.21.73", 8080), verbose())
-
-robotstxt("blog.dataembassy.co.nz")
 
 rt = robotstxt("fanfiction.net")
 
@@ -85,15 +55,15 @@ p = 10 # p is the length (in seconds) of measurement period
 ```{r scrape-data}
 
 # Pick which page you want to scrape - This URL takes stories of all ratings, sorted by favourites as a measure of popularity
+
+# This url will get us the the top favourited Harry Potter stories of all ratings. "https://www.fanfiction.net/book/Harry-Potter/?&srt=4&r=10&p="
+
 base_url = 
   "https://www.fanfiction.net/book/Harry-Potter/?&srt=4&r=10&p="
 
-# 1:20 indicates the pages I want
-# There are 25 stories per page, so the first 20 pages gives us the top 500 stories
-run = TRUE
-
-if(run){
-map_df(1:2, limit_rate(function(i){
+# 1:4 indicates the pages I want
+# There are 25 stories per page, so the first 4 pages gives us the top 100 stories
+map_df(1:4, limit_rate(function(i){
 
   pages = read_html(paste0(base_url, i))
   
@@ -101,47 +71,27 @@ map_df(1:2, limit_rate(function(i){
   data.frame(title = html_text(html_nodes(pages, ".stitle")), details=html_text(html_nodes(pages, ".xgray")),
              stringsAsFactors=FALSE)
 
-}, rate(n, p)) ) -> hp_data
-}
+}, rate(n, p)) ) -> my_data
 
-hp_data = read_csv("somethingIpreparedearlier.csv")
-# View(head(hp_data))
-
-# Store how many stories for graph titles later
-n_stories = dim(hp_data)[1]
-
-```
-
-```{r scrape-data}
-
-# Pick which page you want to scrape - This URL takes stories of all ratings, sorted by favourites as a measure of popularity
-base_url = 
-  "https://www.fanfiction.net/book/Harry-Potter/?&srt=4&r=10&p="
-
-# 1:20 indicates the pages I want
-# There are 25 stories per page, so the first 20 pages gives us the top 500 stories
-map_df(1:20, function(i) {
-
-  pages = read_html(paste0(base_url, i))
-  
-  # The '.' before stitle and xgray indicates that it is the class
-  data.frame(title = html_text(html_nodes(pages, ".stitle")), details=html_text(html_nodes(pages, ".xgray")),
-             stringsAsFactors=FALSE)
-
-}) -> data
+# This may take a little while to run - just sit tight
 
 # Store how many stories for each graph titles later
-n_stories = dim(data)[1]
+n_stories = dim(my_data)[1]
+
+# Did you get the number of stories you expected?
+n_stories
 
 ```
 
 ## Get some helpful information from the filter menu
-This next section pulls some information from the filters menu to help up clean up the data later. See [this xpath tutorial](https://www.w3schools.com/xml/xpath_intro.asp) for more information.
+This next section pulls some information from the filters menu to help up clean up the data later. Optional: see [this xpath tutorial](https://www.w3schools.com/xml/xpath_intro.asp) for more information.
 
 ```{r helpful-bits}
 # Major credit to Anna for this code and the chunk below - you would have been disgusted by how hack-y it was before
 
-home = read_html("https://www.fanfiction.net/book/Harry-Potter/")
+helpful = str_split_fixed(base_url, "\\?", 2)[1]
+
+home = read_html(helpful)
 
 # Get genres
 genres = home %>% 
@@ -169,7 +119,7 @@ my_counter = function(x){
 ## Tidy up the data
 ```{r tidy-data}
 
-tidy_data = data %>%
+tidy_data = my_data %>%
   mutate(id = 1:n()) %>%
   select(id,title, details) %>% 
   separate_rows(details,sep="- ") %>%
@@ -219,4 +169,11 @@ for (jj in 1:length(characters)){
 
 ```
 
+```{r save-data}
 
+# This will save your data as a csv file for us to use in Part 3
+write_csv(my_data, "my_fandom_data.csv")
+
+```
+
+Return to the computer lab instructions now!
